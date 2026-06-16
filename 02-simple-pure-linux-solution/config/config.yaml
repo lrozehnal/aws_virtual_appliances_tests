@@ -1,0 +1,11 @@
+vpc:
+  client:
+    "cidr": "10.1.0.0/24"
+    "desc": "client VPC - to host EC2 instance which traffic is going to be inspected"
+    "name" : "client VPC"
+    "region" : "eu-west-1"  
+  inspect:
+    "cidr": "10.2.0.0/24"
+    "desc": "inspect VPC - to host EC2 instance which which is going to inspect the traffic"
+    "name" : "inspect VPC"
+    "region" : "eu-west-1"  
