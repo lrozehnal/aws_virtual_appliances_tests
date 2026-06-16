@@ -88,7 +88,7 @@ resource "aws_instance" "client" {
 
 resource "aws_route53_record" "inspect" {
   zone_id = data.aws_route53_zone.main.zone_id
-  name    = "inspect${local.domain}."
+  name    = "inspect.${local.domain} ."
   type    = "A"
   ttl     = 300
   records = [aws_instance.inspect.public_ip]
@@ -96,7 +96,7 @@ resource "aws_route53_record" "inspect" {
 
 resource "aws_route53_record" "client" {
   zone_id = data.aws_route53_zone.main.zone_id
-  name    = "client${local.domain}."
+  name    = "client.${local.domain}."
   type    = "A"
   ttl     = 300
   records = [aws_instance.client.public_ip]
