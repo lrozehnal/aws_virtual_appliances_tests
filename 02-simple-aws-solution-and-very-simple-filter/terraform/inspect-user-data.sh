@@ -22,24 +22,27 @@ sudo setcap cap_net_admin+ep ./gwlbtun
 
 cat << 'EOF' | sudo tee /opt/simple-passthrough-script.sh > /dev/null
 #!/bin/bash
-# =============================================
-# GWLB Tunnel Create Script - Simple Passthrough
-# =============================================
+echo "==> GWLB + tc drop port 80 | Mode=$1 | In=$2 | Out=$3 | ENI=$4"
 
-echo "==> GWLB Passthrough Setup | Mode=$1 | In=$2 | Out=$3 | ENI=$4"
-
-# Clean old tc rules
 tc qdisc del dev "$2" ingress 2>/dev/null || true
+tc qdisc add dev "$2" ingress
 
-# tc Mirroring (critical for GWLB passthrough)
-tc qdisc add dev "$2" ingress 2>/dev/null || true
+# Drop TCP port 80
+tc filter add dev "$2" parent ffff: protocol ip prio 1 u32 \
+  match ip protocol 6 0xff \
+  match ip dport 80 0xffff \
+  action drop
+
+# Mirror the rest
 tc filter add dev "$2" parent ffff: protocol all prio 2 u32 match u32 0 0 flowid 1:1 action mirred egress mirror dev "$3"
 
-# Networking settings
+echo 1 > /proc/sys/net/ipv4/ip_forward
+echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
 echo 0 > /proc/sys/net/ipv4/conf/"$2"/rp_filter
 echo 0 > /proc/sys/net/ipv4/conf/"$3"/rp_filter
-echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter
-echo 1 > /proc/sys/net/ipv4/ip_forward
+
+echo "==> Drop rule installed on $2"
+EOF
 EOF
 
 
