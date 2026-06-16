@@ -1,0 +1,1 @@
+This is the initial simple scenario , basically copy-pasted from here: https://aws.amazon.com/blogs/networking-and-content-delivery/how-to-integrate-linux-instances-with-aws-gateway-load-balancer/  the 1st section "Starting simple – Pass the traffic through"
