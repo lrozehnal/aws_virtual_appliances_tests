@@ -79,6 +79,11 @@ resource "aws_instance" "client" {
   subnet_id                   = aws_subnet.subnet-1.id
   vpc_security_group_ids      = [aws_security_group.client.id]
   associate_public_ip_address = true
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo dnf install -y amazon-ssm-agent
+              sudo systemctl enable --now amazon-ssm-agent
+              EOF
   tags = merge(local.tags, {
     Name = "client"
   })

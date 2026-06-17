@@ -36,36 +36,41 @@ resource "aws_key_pair" "key" {
 }
 
 
-
 data "aws_route53_zone" "main" {
   provider = aws.eu-west-1
   name     = local.domain
 }
 
 
+# FortiGate PAYG / On-Demand AMI
+data "aws_ami" "fortigate" {
+  most_recent = true
+  owners      = ["aws-marketplace"]
+
+  filter {
+    name   = "name"
+    values = ["FortiGate-VM64-AWSONDEMAND*"]
+  }
+}
+
 resource "aws_instance" "inspect" {
-  ami           = data.aws_ami.ami.id
-  instance_type = "t4g.micro"
-  key_name      = aws_key_pair.key.key_name
+  ami           = data.aws_ami.fortigate.id
+  instance_type = "t3.medium"     # Smallest practical
 
-
+  key_name                    = aws_key_pair.key.key_name
   subnet_id                   = aws_subnet.subnet-3.id
   vpc_security_group_ids      = [aws_security_group.inspect.id]
   associate_public_ip_address = true
   source_dest_check           = false
-  #user_data                   = file("inspect-user-data.sh")
-  user_data_base64 = base64encode(file("inspect-user-data.sh"))
-  root_block_device {
-    volume_size           = 30    # Change from default 8GB → 30GB (or 16/20)
-    volume_type           = "gp3" # Best price/performance
-    delete_on_termination = true
 
-    tags = merge(local.tags, {
-      Name = "inspect-root-volume"
-    })
+  root_block_device {
+    volume_size           = 30
+    volume_type           = "gp3"
+    delete_on_termination = true
   }
+
   tags = merge(local.tags, {
-    Name = "inspect"
+    Name = "fortigate-vm01"
   })
 }
 
@@ -78,15 +83,45 @@ resource "aws_instance" "client" {
 
   subnet_id                   = aws_subnet.subnet-1.id
   vpc_security_group_ids      = [aws_security_group.client.id]
+  associate_public_ip_address = true
   user_data = <<-EOF
               #!/bin/bash
               sudo dnf install -y amazon-ssm-agent
               sudo systemctl enable --now amazon-ssm-agent
               EOF
-  associate_public_ip_address = true
   tags = merge(local.tags, {
     Name = "client"
   })
+}
+
+
+
+resource "aws_instance" "bastion" {
+  ami           = data.aws_ami.ami.id
+  instance_type = "t4g.micro"
+  key_name      = aws_key_pair.key.key_name
+
+
+  subnet_id                   = aws_subnet.subnet-2.id
+  vpc_security_group_ids      = [aws_security_group.client.id]
+  associate_public_ip_address = true
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo dnf install -y amazon-ssm-agent
+              sudo systemctl enable --now amazon-ssm-agent
+              EOF
+  tags = merge(local.tags, {
+    Name = "bastion"
+  })
+}
+
+
+resource "aws_route53_record" "bastion" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "bastion.${local.domain}."
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.bastion.public_ip]
 }
 
 
@@ -98,6 +133,7 @@ resource "aws_route53_record" "inspect" {
   ttl     = 300
   records = [aws_instance.inspect.public_ip]
 }
+
 
 resource "aws_route53_record" "client" {
   zone_id = data.aws_route53_zone.main.zone_id

@@ -1,0 +1,1 @@
+The same as '01' just want to use fortigate firewall instead of bare aws linux
