@@ -53,14 +53,37 @@ data "aws_ami" "fortigate" {
   }
 }
 
+
+data "aws_network_interface" "gwlb_eni" {
+  provider = aws.eu-west-1
+  
+  filter {
+    name   = "attachment.instance-owner-id"
+    values = ["amazon-aws"]   
+  }
+
+
+  filter {
+    name   = "vpc-id"
+    values = [aws_vpc.inspect.id]
+  }
+
+  filter {
+    name   = "subnet-id"
+    values = [aws_subnet.subnet-3.id]
+  }
+}
+
+
+
 resource "aws_instance" "inspect" {
   ami           = data.aws_ami.fortigate.id
-  instance_type = "t3.medium"     # Smallest practical
+  instance_type = "t3.medium"
+  key_name      = aws_key_pair.key.key_name
+  subnet_id     = aws_subnet.subnet-3.id
+  vpc_security_group_ids = [aws_security_group.inspect.id]
 
-  key_name                    = aws_key_pair.key.key_name
-  subnet_id                   = aws_subnet.subnet-3.id
-  vpc_security_group_ids      = [aws_security_group.inspect.id]
-  associate_public_ip_address = true
+  associate_public_ip_address = false
   source_dest_check           = false
 
   root_block_device {
@@ -72,6 +95,12 @@ resource "aws_instance" "inspect" {
   tags = merge(local.tags, {
     Name = "fortigate-vm01"
   })
+
+
+  user_data = templatefile("fortinet-userdata.tpl", {
+    geneve_remote_ip = data.aws_network_interface.gwlb_eni.private_ip
+  })
+
 }
 
 
@@ -116,6 +145,28 @@ resource "aws_instance" "bastion" {
 }
 
 
+
+resource "aws_instance" "bastion2" {
+  ami           = data.aws_ami.ami.id
+  instance_type = "t4g.micro"
+  key_name      = aws_key_pair.key.key_name
+
+
+  subnet_id                   = aws_subnet.subnet-3.id
+  vpc_security_group_ids      = [aws_security_group.inspect.id]
+  associate_public_ip_address = true
+  user_data = <<-EOF
+              #!/bin/bash
+              sudo dnf install -y amazon-ssm-agent
+              sudo systemctl enable --now amazon-ssm-agent
+              EOF
+  tags = merge(local.tags, {
+    Name = "bastion2"
+  })
+}
+
+
+
 resource "aws_route53_record" "bastion" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "bastion.${local.domain}."
@@ -125,7 +176,16 @@ resource "aws_route53_record" "bastion" {
 }
 
 
+resource "aws_route53_record" "bastion2" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "bastion2.${local.domain}."
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.bastion2.public_ip]
+}
 
+
+/*
 resource "aws_route53_record" "inspect" {
   zone_id = data.aws_route53_zone.main.zone_id
   name    = "inspect.${local.domain}."
@@ -133,6 +193,7 @@ resource "aws_route53_record" "inspect" {
   ttl     = 300
   records = [aws_instance.inspect.public_ip]
 }
+*/
 
 
 resource "aws_route53_record" "client" {

@@ -35,6 +35,8 @@ resource "aws_lb_target_group_attachment" "inspect" {
   port             = 6081
 }
 
+
+
 resource "aws_lb_listener" "gwlb" {
   provider          = aws.eu-west-1
   load_balancer_arn = aws_lb.gwlb.arn
