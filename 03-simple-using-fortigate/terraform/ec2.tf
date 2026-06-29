@@ -99,6 +99,7 @@ resource "aws_instance" "inspect" {
 
   user_data = templatefile("fortinet-userdata.tpl", {
     geneve_remote_ip = data.aws_network_interface.gwlb_eni.private_ip
+    fortinetpassword = local.fortinetpassword
   })
 
 }

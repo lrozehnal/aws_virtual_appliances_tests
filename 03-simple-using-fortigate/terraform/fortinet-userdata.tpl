@@ -2,7 +2,7 @@
 
 config system admin
     edit admin
-        set password adminadmin12!
+        set password ${fortinetpassword}
     next
 end
 
